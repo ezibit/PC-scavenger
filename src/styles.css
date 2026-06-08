@@ -5,9 +5,7 @@
   color: #f8fafc;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -18,16 +16,8 @@ body {
     #020617;
 }
 
-button,
-a,
-select {
-  font: inherit;
-}
-
-button,
-a {
-  min-height: 44px;
-}
+button, a, select { font: inherit; }
+button, a { min-height: 44px; }
 
 .shell {
   width: min(1180px, calc(100% - 28px));
@@ -59,11 +49,7 @@ h1 {
   letter-spacing: -0.07em;
 }
 
-h2,
-h3,
-p {
-  margin-top: 0;
-}
+h2, h3, p { margin-top: 0; }
 
 .intro {
   max-width: 760px;
@@ -73,8 +59,7 @@ p {
   margin-top: 18px;
 }
 
-.panel,
-.card {
+.panel, .card {
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(15, 23, 42, 0.82);
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.28);
@@ -88,15 +73,9 @@ p {
   gap: 8px;
 }
 
-.scan-panel p {
-  color: #cbd5e1;
-  margin: 0;
-}
+.scan-panel p { color: #cbd5e1; margin: 0; }
 
-.primary,
-.controls button,
-.actions button,
-.actions a {
+.primary, .controls button, .actions button, .actions a {
   border: 0;
   cursor: pointer;
   text-decoration: none;
@@ -120,27 +99,16 @@ p {
   flex-wrap: wrap;
 }
 
-.tabs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 
-.controls button,
-select {
+.controls button, select {
   background: rgba(30, 41, 59, 0.9);
   color: #f8fafc;
   border: 1px solid rgba(148, 163, 184, 0.22);
 }
 
-.controls button.active {
-  color: #020617;
-  background: #f8fafc;
-}
-
-.controls .ghost {
-  color: #cbd5e1;
-}
+.controls button.active { color: #020617; background: #f8fafc; }
+.controls .ghost { color: #cbd5e1; }
 
 select {
   min-height: 44px;
@@ -155,15 +123,30 @@ select {
   padding: 4px 0 14px;
 }
 
-.source-strip span {
+.source-strip span,
+.source-strip a {
   white-space: nowrap;
   color: #93c5fd;
   background: rgba(37, 99, 235, 0.12);
   border: 1px solid rgba(147, 197, 253, 0.14);
   border-radius: 999px;
-  padding: 7px 10px;
+  padding: 8px 11px;
   font-size: 0.86rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
+
+.source-strip a:hover { background: rgba(37, 99, 235, 0.24); }
+
+.warning {
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  color: #fde68a;
+  background: rgba(120, 53, 15, 0.38);
+}
+
+.warning ul { margin-bottom: 0; }
 
 .stats {
   display: grid;
@@ -179,19 +162,10 @@ select {
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
-.stats strong {
-  display: block;
-  font-size: 2rem;
-}
+.stats strong { display: block; font-size: 2rem; }
+.stats span { color: #94a3b8; }
 
-.stats span {
-  color: #94a3b8;
-}
-
-.list {
-  display: grid;
-  gap: 16px;
-}
+.list { display: grid; gap: 16px; }
 
 .card {
   overflow: hidden;
@@ -207,66 +181,33 @@ select {
   background: #111827;
 }
 
-.card-body {
-  padding: 20px;
-}
+.card-body { padding: 20px; }
 
-.card-top,
-.price-row,
-.seller,
-.actions {
+.card-top, .price-row, .seller, .actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
 }
 
-.card-top {
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
+.card-top { justify-content: space-between; margin-bottom: 10px; }
 
-.badge,
-.score {
+.badge, .score {
   border-radius: 999px;
   padding: 7px 10px;
   font-size: 0.83rem;
   font-weight: 900;
 }
 
-.badge {
-  color: #020617;
-  background: #facc15;
-}
+.badge { color: #020617; background: #facc15; }
+.score { background: rgba(16, 185, 129, 0.15); color: #86efac; }
 
-.score {
-  background: rgba(16, 185, 129, 0.15);
-  color: #86efac;
-}
+.card h2 { margin-bottom: 10px; letter-spacing: -0.03em; }
+.meta, .notes { color: #cbd5e1; line-height: 1.5; }
 
-.card h2 {
-  margin-bottom: 10px;
-  letter-spacing: -0.03em;
-}
-
-.meta,
-.notes {
-  color: #cbd5e1;
-  line-height: 1.5;
-}
-
-.price-row {
-  margin: 14px 0;
-}
-
-.price-row strong {
-  color: #86efac;
-  font-size: 1.8rem;
-}
-
-.price-row span {
-  color: #94a3b8;
-}
+.price-row { margin: 14px 0; }
+.price-row strong { color: #86efac; font-size: 1.8rem; }
+.price-row span { color: #94a3b8; }
 
 .specs {
   display: flex;
@@ -285,30 +226,12 @@ select {
   color: #e2e8f0;
 }
 
-.seller {
-  color: #cbd5e1;
-  margin-bottom: 16px;
-}
+.seller { color: #cbd5e1; margin-bottom: 16px; }
+.actions a { color: #020617; background: #f8fafc; }
+.actions button { background: #2563eb; color: #f8fafc; }
+.actions .pass { background: rgba(148, 163, 184, 0.16); color: #cbd5e1; }
 
-.actions a {
-  color: #020617;
-  background: #f8fafc;
-}
-
-.actions button {
-  background: #2563eb;
-  color: #f8fafc;
-}
-
-.actions .pass {
-  background: rgba(148, 163, 184, 0.16);
-  color: #cbd5e1;
-}
-
-.empty {
-  padding: 26px;
-  color: #cbd5e1;
-}
+.empty { padding: 26px; color: #cbd5e1; }
 
 .roadmap {
   padding: 20px;
@@ -317,35 +240,13 @@ select {
   line-height: 1.55;
 }
 
-.roadmap h2 {
-  color: #f8fafc;
-}
+.roadmap h2 { color: #f8fafc; }
 
 @media (max-width: 820px) {
-  .hero,
-  .card {
-    grid-template-columns: 1fr;
-  }
-
-  .card img {
-    min-height: 210px;
-  }
-
-  .stats {
-    grid-template-columns: 1fr;
-  }
-
-  .controls {
-    align-items: stretch;
-  }
-
-  .tabs,
-  .controls button,
-  select {
-    width: 100%;
-  }
-
-  .tabs button {
-    flex: 1;
-  }
+  .hero, .card { grid-template-columns: 1fr; }
+  .card img { min-height: 210px; }
+  .stats { grid-template-columns: 1fr; }
+  .controls { align-items: stretch; }
+  .tabs, .controls button, select { width: 100%; }
+  .tabs button { flex: 1; }
 }
