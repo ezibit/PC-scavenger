@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "PC Scavenger Collector",
+  "version": "0.1.0",
+  "description": "Collects visible logged-in marketplace listings and sends them to the PC Scavenger dashboard.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "https://www.facebook.com/*",
+    "https://facebook.com/*",
+    "https://www.gumtree.com.au/*",
+    "https://www.ebay.com.au/*",
+    "https://www.reddit.com/*",
+    "https://*.netlify.app/*",
+    "http://localhost/*",
+    "http://localhost:5173/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.facebook.com/marketplace/*",
+        "https://facebook.com/marketplace/*",
+        "https://www.gumtree.com.au/*",
+        "https://www.ebay.com.au/*",
+        "https://www.reddit.com/*"
+      ],
+      "js": ["collector.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.netlify.app/*",
+        "http://localhost/*",
+        "http://localhost:5173/*"
+      ],
+      "js": ["dashboard-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "PC Scavenger",
+    "default_popup": "popup.html"
+  }
+}
