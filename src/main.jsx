@@ -2,51 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
-const DEFAULT_SOURCES = [
-  'Facebook Marketplace', 'Gumtree', 'eBay AU', 'OzBargain', 'Reddit', 'Grays Auctions',
-  'Pickles Auctions', 'AllBids', 'Lloyds Auctions', 'Cash Converters', 'CeX Australia',
-  'Reebelo', 'Umart', 'Computer Alliance', 'Scorptec', 'Mwave', 'PC Case Gear',
-  'Centre Com', 'Amazon AU', 'Kogan', 'Catch', 'StaticICE'
-];
+const DEFAULT_PARTS = ['All', 'GPU', 'CPU', 'Motherboard', 'RAM', 'PSU', 'Complete PC'];
 
-const SEED_DEALS = [
-  {
-    id: 'seed-start-here',
-    title: 'Run scan now to pull live public-source and manual hunt results',
-    category: 'GPU',
-    tier: 'Unknown Price',
-    source: 'PC Scavenger',
-    price: null,
-    valueEstimate: 2600,
-    location: 'Brisbane / SE QLD signal',
-    distanceKm: 18,
-    listedAt: new Date().toISOString(),
-    specs: ['4090', '4080', '7950x3d', '7800x3d'],
-    seller: 'Scanner',
-    contact: 'Run scan',
-    link: '/.netlify/functions/scan',
-    image: 'https://placehold.co/480x320/111827/f8fafc?text=PC+Scavenger',
-    notes: 'The app now calls a Netlify backend scanner. Add Google CSE keys in Netlify to widen live Google-based search results.'
-  }
-];
-
-function scoreDeal(item) {
-  if (Number.isFinite(item.score)) return item.score;
-  const valueGap = item.price === null ? 0 : Math.max(item.valueEstimate - item.price, 0);
-  const ratio = item.price === 0 ? 999 : item.price ? item.valueEstimate / item.price : 1;
-  const tierBoost = {
-    'Ultimate Prize': 1000,
-    'Disgustingly Cheap': 700,
-    Cheap: 450,
-    Discounted: 220,
-    'Showroom Slashed': 120,
-    'On Sale': 60,
-    'Unknown Price': 35
-  }[item.tier] || 0;
-  const categoryBoost = { GPU: 220, CPU: 190, Motherboard: 170, PSU: 150, RAM: 130, 'Complete PC': 120, Peripheral: 40 }[item.category] || 0;
-  const distancePenalty = item.distanceKm > 150 ? 80 : item.distanceKm / 3;
-  return Math.round(tierBoost + categoryBoost + valueGap / 5 + ratio * 15 - distancePenalty);
+function load(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 }
+
+function save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
 
 function formatMoney(value) {
   if (value === 0) return 'FREE';
@@ -62,63 +24,127 @@ function formatAge(iso) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function load(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+function scoreDeal(item) {
+  const text = `${item.title || ''} ${item.notes || ''}`.toLowerCase();
+  const highHits = ['4090','4080','3090','7900 xtx','7950x3d','7800x3d','14900k','13900k','x670e','z790','ddr5','64gb','128gb','1000w','1200w'].filter((term) => text.includes(term)).length;
+  const price = item.price;
+  const estimate = item.valueEstimate || 300;
+  const gap = price == null ? 0 : Math.max(estimate - price, 0);
+  const ratio = price === 0 ? 80 : price ? estimate / price : 1;
+  const tierBoost = { 'Ultimate Prize': 1600, 'Disgustingly Cheap': 950, Cheap: 600, Discounted: 260, 'Unknown Price': 80 }[item.tier] || 0;
+  const categoryBoost = { GPU: 320, CPU: 260, Motherboard: 220, PSU: 180, RAM: 150, 'Complete PC': 140, Peripheral: 20 }[item.category] || 0;
+  return Math.round(tierBoost + categoryBoost + highHits * 120 + gap / 4 + ratio * 35);
+}
+
+function normaliseDeal(item, index = 0) {
+  const clean = {
+    id: item.id || `deal-${Date.now()}-${index}`,
+    title: item.title || 'Untitled listing',
+    category: item.category || 'Peripheral',
+    tier: item.tier || 'Unknown Price',
+    price: item.price ?? null,
+    valueEstimate: item.valueEstimate || 300,
+    source: item.source || 'Unknown source',
+    location: item.location || 'Unknown location',
+    distanceKm: item.distanceKm ?? 999,
+    listedAt: item.listedAt || new Date().toISOString(),
+    specs: Array.isArray(item.specs) ? item.specs : [],
+    seller: item.seller || 'Unknown seller',
+    contact: item.contact || 'Open listing',
+    link: item.link || '#',
+    image: item.image || `https://placehold.co/480x320/111827/f8fafc?text=${encodeURIComponent(item.category || 'Listing')}`,
+    notes: item.notes || 'Real listing captured from public scanner or browser extension.',
+    isManual: false
+  };
+  return { ...clean, score: scoreDeal(clean) };
 }
 
 function App() {
-  const [deals, setDeals] = useState(() => load('pcscavenger.deals', SEED_DEALS));
+  const [deals, setDeals] = useState(() => load('pcscavenger.deals', []));
   const [interested, setInterested] = useState(() => load('pcscavenger.interested', []));
   const [passed, setPassed] = useState(() => load('pcscavenger.passed', []));
-  const [sourceSearches, setSourceSearches] = useState(() => load('pcscavenger.sourceSearches', []));
+  const [availableParts, setAvailableParts] = useState(() => load('pcscavenger.availableParts', DEFAULT_PARTS));
+  const [selectedPart, setSelectedPart] = useState(() => load('pcscavenger.selectedPart', 'All'));
   const [view, setView] = useState('deals');
   const [category, setCategory] = useState('All');
   const [lastScan, setLastScan] = useState(() => load('pcscavenger.lastScan', null));
   const [scanStatus, setScanStatus] = useState('Ready');
   const [scanErrors, setScanErrors] = useState([]);
   const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [extensionStatus, setExtensionStatus] = useState('Not checked');
 
-  useEffect(() => localStorage.setItem('pcscavenger.deals', JSON.stringify(deals)), [deals]);
-  useEffect(() => localStorage.setItem('pcscavenger.interested', JSON.stringify(interested)), [interested]);
-  useEffect(() => localStorage.setItem('pcscavenger.passed', JSON.stringify(passed)), [passed]);
-  useEffect(() => localStorage.setItem('pcscavenger.sourceSearches', JSON.stringify(sourceSearches)), [sourceSearches]);
-  useEffect(() => localStorage.setItem('pcscavenger.lastScan', JSON.stringify(lastScan)), [lastScan]);
+  useEffect(() => save('pcscavenger.deals', deals), [deals]);
+  useEffect(() => save('pcscavenger.interested', interested), [interested]);
+  useEffect(() => save('pcscavenger.passed', passed), [passed]);
+  useEffect(() => save('pcscavenger.availableParts', availableParts), [availableParts]);
+  useEffect(() => save('pcscavenger.selectedPart', selectedPart), [selectedPart]);
+  useEffect(() => save('pcscavenger.lastScan', lastScan), [lastScan]);
 
-  async function runLiveScan() {
-    setScanStatus('Scanning wide net...');
+  function mergeDeals(incoming) {
+    const cleaned = incoming.map(normaliseDeal).filter((deal) => deal.title && deal.link && !deal.isManual);
+    setDeals((prev) => {
+      const all = [...cleaned, ...prev];
+      return all.filter((item, index, arr) => arr.findIndex((x) => x.link === item.link || x.id === item.id) === index);
+    });
+    return cleaned.length;
+  }
+
+  async function runPublicScan(part = selectedPart) {
+    setScanStatus(`Scanning public/indexed listings for ${part}...`);
     setScanErrors([]);
     try {
-      const response = await fetch('/.netlify/functions/scan', { cache: 'no-store' });
+      const response = await fetch(`/.netlify/functions/scan?part=${encodeURIComponent(part)}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`Scanner returned ${response.status}`);
       const payload = await response.json();
-      setDeals(Array.isArray(payload.deals) && payload.deals.length ? payload.deals : SEED_DEALS);
-      setSourceSearches(payload.sourceSearches || []);
+      const count = mergeDeals(Array.isArray(payload.deals) ? payload.deals : []);
+      setAvailableParts(payload.availableParts || DEFAULT_PARTS);
       setLastScan(payload.scannedAt || new Date().toISOString());
       setGoogleEnabled(Boolean(payload.googleCseEnabled));
       setScanErrors(payload.errors || []);
-      setScanStatus(`Scan complete: ${payload.resultCount || 0} results`);
+      setScanStatus(`Public scan complete: ${count} real results added`);
     } catch (error) {
-      setScanStatus('Scan failed — showing saved/mock data');
+      setScanStatus('Public scan failed — no manual/maybe results shown');
       setScanErrors([error.message]);
     }
   }
 
-  useEffect(() => { runLiveScan(); }, []);
+  function pullFromExtension() {
+    setExtensionStatus('Requesting listings from extension...');
+    const timeout = setTimeout(() => setExtensionStatus('No extension response. Load the Chrome/Edge extension from /extension, then refresh.'), 3000);
+    function handler(event) {
+      if (event.source !== window || event.data?.type !== 'PC_SCAVENGER_EXTENSION_LISTINGS') return;
+      clearTimeout(timeout);
+      window.removeEventListener('message', handler);
+      const listings = Array.isArray(event.data.listings) ? event.data.listings : [];
+      const count = mergeDeals(listings);
+      setExtensionStatus(`Imported ${count} logged-in browser listings`);
+    }
+    window.addEventListener('message', handler);
+    window.postMessage({ type: 'PC_SCAVENGER_REQUEST_LISTINGS' }, '*');
+  }
+
+  useEffect(() => { runPublicScan(selectedPart); }, []);
 
   const visibleDeals = useMemo(() => {
     const ignored = new Set([...interested, ...passed]);
     return deals
+      .filter((deal) => !deal.isManual)
       .filter((deal) => !ignored.has(deal.id))
       .filter((deal) => category === 'All' || deal.category === category)
       .map((deal) => ({ ...deal, score: scoreDeal(deal) }))
       .sort((a, b) => b.score - a.score);
   }, [deals, interested, passed, category]);
 
-  const interestedDeals = useMemo(() => deals.filter((deal) => interested.includes(deal.id)).map((deal) => ({ ...deal, score: scoreDeal(deal) })).sort((a, b) => b.score - a.score), [deals, interested]);
+  const interestedDeals = useMemo(() => deals
+    .filter((deal) => interested.includes(deal.id))
+    .map((deal) => ({ ...deal, score: scoreDeal(deal) }))
+    .sort((a, b) => b.score - a.score), [deals, interested]);
 
   function markInterested(id) { setInterested((prev) => (prev.includes(id) ? prev : [...prev, id])); }
   function pass(id) { setPassed((prev) => (prev.includes(id) ? prev : [...prev, id])); }
   function resetLists() { setInterested([]); setPassed([]); }
+  function clearFeed() { setDeals([]); setInterested([]); setPassed([]); }
+  function changePart(part) { setSelectedPart(part); setCategory(part === 'All' ? 'All' : part); runPublicScan(part); }
 
   const categories = ['All', 'GPU', 'CPU', 'Motherboard', 'PSU', 'RAM', 'Complete PC', 'Peripheral'];
   const activeList = view === 'interested' ? interestedDeals : visibleDeals;
@@ -127,17 +153,15 @@ function App() {
     <main className="shell">
       <header className="hero">
         <div>
-          <p className="eyebrow">Brisbane-first high-end hardware hunter</p>
+          <p className="eyebrow">Desktop scavenger command centre</p>
           <h1>PC Scavenger</h1>
-          <p className="intro">
-            Wide-net deal triage for GPUs, CPUs, PSUs, motherboards, RAM and complete high-spec systems.
-            Free, giveaway and absurdly cheap listings get pushed to the top.
-          </p>
+          <p className="intro">One ranked feed for real high-end PC listings. Public scanners plus logged-in browser extension capture. No manual maybe cards.</p>
         </div>
         <div className="panel scan-panel">
-          <button className="primary" onClick={runLiveScan}>Run scan now</button>
+          <button className="primary" onClick={() => runPublicScan(selectedPart)}>Run public scan</button>
+          <button className="primary secondary" onClick={pullFromExtension}>Pull browser listings</button>
           <p>Status: <strong>{scanStatus}</strong></p>
-          <p>Twice-daily backend target: <strong>8:00 AM</strong> and <strong>8:00 PM</strong></p>
+          <p>Extension: <strong>{extensionStatus}</strong></p>
           <p>Google CSE: <strong>{googleEnabled ? 'Enabled' : 'Not connected yet'}</strong></p>
           <p>Last scan: <strong>{lastScan ? new Date(lastScan).toLocaleString() : 'Not yet'}</strong></p>
         </div>
@@ -145,38 +169,25 @@ function App() {
 
       <section className="controls panel">
         <div className="tabs">
-          <button className={view === 'deals' ? 'active' : ''} onClick={() => setView('deals')}>Available finds</button>
-          <button className={view === 'interested' ? 'active' : ''} onClick={() => setView('interested')}>Interested list ({interestedDeals.length})</button>
+          <button className={view === 'deals' ? 'active' : ''} onClick={() => setView('deals')}>Real listings</button>
+          <button className={view === 'interested' ? 'active' : ''} onClick={() => setView('interested')}>Interested ({interestedDeals.length})</button>
         </div>
-        <select value={category} onChange={(event) => setCategory(event.target.value)}>
-          {categories.map((name) => <option key={name}>{name}</option>)}
-        </select>
-        <button className="ghost" onClick={resetLists}>Reset interested/pass</button>
+        <select value={selectedPart} onChange={(event) => changePart(event.target.value)}>{availableParts.map((name) => <option key={name}>{name}</option>)}</select>
+        <select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((name) => <option key={name}>{name}</option>)}</select>
+        <button className="ghost" onClick={resetLists}>Reset decisions</button>
+        <button className="ghost" onClick={clearFeed}>Clear feed</button>
       </section>
 
-      <section className="source-strip">
-        {(sourceSearches.length ? sourceSearches : DEFAULT_SOURCES.map((name) => ({ name, url: '#', loginRequired: name === 'Facebook Marketplace' }))).map((source) => (
-          <a key={source.name} href={source.url} target="_blank" rel="noreferrer" title={source.loginRequired ? 'Login required at source. Your app state stays saved here.' : 'Open source search'}>
-            {source.name}{source.loginRequired ? ' 🔐' : ''}
-          </a>
-        ))}
-      </section>
-
-      {scanErrors.length > 0 && (
-        <section className="panel warning">
-          <strong>Scanner notes:</strong>
-          <ul>{scanErrors.map((error) => <li key={error}>{error}</li>)}</ul>
-        </section>
-      )}
+      {scanErrors.length > 0 && <section className="panel warning"><strong>Scanner notes:</strong><ul>{scanErrors.map((error) => <li key={error}>{error}</li>)}</ul></section>}
 
       <section className="stats">
-        <div><strong>{visibleDeals.length}</strong><span>Active finds</span></div>
+        <div><strong>{visibleDeals.length}</strong><span>Real listings</span></div>
         <div><strong>{interestedDeals.length}</strong><span>Interested</span></div>
         <div><strong>{passed.length}</strong><span>Passed</span></div>
       </section>
 
       <section className="list">
-        {activeList.length === 0 && <div className="empty panel">No items in this view yet.</div>}
+        {activeList.length === 0 && <div className="empty panel">No real listings loaded yet. Run public scan or pull logged-in marketplace listings from the extension.</div>}
         {activeList.map((deal) => (
           <article className="card" key={deal.id}>
             <img src={deal.image} alt="" />
@@ -189,26 +200,13 @@ function App() {
               <p className="notes">{deal.notes}</p>
               <div className="seller"><span>Seller: <strong>{deal.seller}</strong></span><span>Contact: <strong>{deal.contact}</strong></span></div>
               <div className="actions">
-                <a href={deal.link} target="_blank" rel="noreferrer">Open listing/search</a>
+                <a href={deal.link} target="_blank" rel="noreferrer">Open listing</a>
                 {view !== 'interested' && <button onClick={() => markInterested(deal.id)}>Interested</button>}
                 {view !== 'interested' && <button className="pass" onClick={() => pass(deal.id)}>Pass</button>}
               </div>
             </div>
           </article>
         ))}
-      </section>
-
-      <section className="panel roadmap">
-        <h2>Scanner architecture</h2>
-        <p>
-          Login-required sites open directly in their own tab. You log in with the source itself, not inside this app.
-          PC Scavenger preserves your Interested/Pass state while you move between markets.
-        </p>
-        <ul>
-          <li>Live feeds: Reddit, eBay RSS, OzBargain RSS where accessible.</li>
-          <li>Google CSE: broad discovery across Facebook, Gumtree, auctions, refurbishers and retailers once keys are added.</li>
-          <li>Manual source launchers: open targeted searches when sites block bots or require login.</li>
-        </ul>
       </section>
     </main>
   );
